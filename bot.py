@@ -36,7 +36,7 @@ def webhook():
         if user_text:
             try:
                 response = client.chat.completions.create(
-                    model="llama3-8b-8192",   # fast + free Groq model
+                    model="llama-3.1-8b-instant",   # fast + free Groq model
                     messages=[
                         {"role": "system", "content": "Tum sirf Hindi me jawab doge."},
                         {"role": "user", "content": user_text}
