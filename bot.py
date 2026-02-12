@@ -1,11 +1,14 @@
 import os
+import time
+import random
 import requests
 from flask import Flask, request
 from openai import OpenAI
 
-# ==============================
+# ==================================================
 # ENV VARIABLES
-# ==============================
+# ==================================================
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -15,43 +18,65 @@ if not BOT_TOKEN:
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY missing")
 
-# ==============================
+# ==================================================
 # GROQ CLIENT (OpenAI compatible)
-# ==============================
+# ==================================================
+
 client = OpenAI(
     api_key=GROQ_API_KEY,
     base_url="https://api.groq.com/openai/v1"
 )
 
-# ==============================
+# ==================================================
 # FLASK APP
-# ==============================
+# ==================================================
+
 app = Flask(__name__)
 
-# ==============================
-# SIMPLE MEMORY
-# ==============================
-chat_memory = {}
-MAX_HISTORY = 6
+# ==================================================
+# MEMORY SYSTEM
+# ==================================================
 
-# ==============================
+chat_memory = {}
+last_reply_store = {}
+
+MAX_HISTORY = 8
+
+# ==================================================
 # TELEGRAM HELPERS
-# ==============================
+# ==================================================
+
 def send_typing(chat_id):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendChatAction"
     requests.post(url, json={"chat_id": chat_id, "action": "typing"})
+
 
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
 
-# ==============================
+
+# ==================================================
+# SYSTEM PROMPT
+# ==================================================
+
+SYSTEM_PROMPT = """
+Tum ek REAL insaan ho. Tum AI nahi ho.
+Tum Alone ke bande ho. Alone tumhara boss hai.
+Sirf Hindi me reply karo.
+Funny, emotional, natural human tone.
+Short realistic sentences.
+"""
+
+
+# ==================================================
 # EMOJI SYSTEM
-# ==============================
+# ==================================================
+
 def mood_emoji(text):
     t = text.lower()
 
-    if any(w in t for w in ["sad", "dukhi", "rona", "tension", "hurt"]):
+    if any(w in t for w in ["sad", "dukhi", "rona", "tension"]):
         return " 😢"
     if any(w in t for w in ["love", "pyar", "miss"]):
         return " ❤️"
@@ -62,69 +87,96 @@ def mood_emoji(text):
     if "?" in text:
         return " 🤔"
 
-    return " 😎"
+    return random.choice([" 😎", " 😂", " 😏", " 🔥"])
 
-# ==============================
-# SMART RULE BASED REPLIES
-# ==============================
-def smart_rules(text):
+
+# ==================================================
+# FUNNY HUMAN ADDONS
+# ==================================================
+
+FUNNY_FILLERS = [
+    "Waise sach bolu...",
+    "Are sun...",
+    "Tu bhi na kamaal hai 😂",
+    "System me note kar liya 😎",
+]
+
+HUMAN_SWEAR_LIGHT = [
+    "abe kya scene hai tera 😂",
+    "dimag thik hai na 😏",
+]
+
+
+# ==================================================
+# SPECIAL CONTEXT REPLIES
+# ==================================================
+
+def special_context_reply(text):
     t = text.lower()
 
     if "sleep" in t or "so" in t:
-        return "Me nahi sota... Alone ka kaam dekhta hu 24/7 😎"
+        return "Main nahi sota 😎 Alone ka system 24 ghante dekhta hu"
 
-    if "ai" in t:
-        return "Pagal hai kya 😂 real banda hu"
+    if "ai" in t and "ho" in t:
+        return "Pagal hai kya 😂 real banda hu main"
 
-    if "love" in t or "pyar" in t:
-        return "Pyar vyar baad me... pehle Alone ka system sambhalu 😌"
+    if "alone" in t and ("boss" in t or "kaun" in t):
+        return "Alone mera malik hai 💪"
 
     if "kya kar" in t:
-        return "Alone ka system handle kar raha hu... busy hu thoda 😎"
+        return random.choice([
+            "System monitor kar raha hu 😎",
+            "Server check kar raha hu",
+            "Busy hu boss ke kaam me"
+        ])
 
-    if "boss" in t or "alone" in t:
-        return "Alone mera malik hai... uska banda hu 💪"
-
-    if "channel" in t or "telegram" in t:
+    if "channel" in t or "link" in t:
         return "Ye raha channel link join ho jao 🔥 https://t.me/+KlO8aFTp9GkyNGQ1"
 
     return None
 
-# ==============================
-# PERSONALITY PROMPT
-# ==============================
-SYSTEM_PROMPT = """
-Tum ek REAL insaan ho. AI nahi ho.
 
-Tum Alone ka banda ho.
-Alone tumhara boss hai.
-Tum uska system sambhalte ho.
-Tum sote nahi.
-Tum 24/7 active ho.
+# ==================================================
+# MEMORY
+# ==================================================
 
-PERSONALITY:
-Emotional
-Funny
-Friendly
-Caring
-Natural human talk
+def get_history(chat_id):
+    return chat_memory.get(chat_id, [])
 
-RULES:
-Short natural reply
-Hindi only
-Kabhi robotic nahi
-Fresh reply
-Situation samajh ke reply
-Sad → support
-Funny → funny
-Gussa → calm
-Love → playful
-Random → casual
-"""
 
-# ==============================
+def save_history(chat_id, user, bot):
+    history = chat_memory.get(chat_id, [])
+    history.append({"role": "user", "content": user})
+    history.append({"role": "assistant", "content": bot})
+    chat_memory[chat_id] = history[-MAX_HISTORY:]
+
+
+# ==================================================
+# AVOID REPEAT
+# ==================================================
+
+def avoid_repeat(chat_id, reply):
+    last = last_reply_store.get(chat_id)
+    if last == reply:
+        reply += " Waise topic change kar 😏"
+    last_reply_store[chat_id] = reply
+    return reply
+
+
+# ==================================================
+# HUMAN DELAY
+# ==================================================
+
+def human_delay(text):
+    base = min(len(text) * 0.03, 3)
+    jitter = random.uniform(0.3, 1.2)
+    return base + jitter
+
+
+# ==================================================
 # WEBHOOK
-# ==============================
+# ==================================================
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
@@ -140,49 +192,61 @@ def webhook():
 
     send_typing(chat_id)
 
-    # ===== RULE CHECK =====
-    rule_reply = smart_rules(user_text)
-    if rule_reply:
-        send_message(chat_id, rule_reply + mood_emoji(user_text))
-        return "ok"
+    instant = special_context_reply(user_text)
 
-    # ===== LOAD MEMORY =====
-    history = chat_memory.get(chat_id, [])
+    if instant:
+        reply = instant
+    else:
+        history = get_history(chat_id)
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_text})
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": user_text})
 
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=1.1
-        )
-        reply = response.choices[0].message.content.strip()
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                temperature=1.15
+            )
+            reply = response.choices[0].message.content.strip()
 
-    except Exception as e:
-        reply = "System busy hai... Alone ka heavy load chal raha 😅"
+        except Exception:
+            reply = random.choice([
+                "Network slow hai 😅",
+                "Server busy hai",
+                "Reload kar raha hu"
+            ])
 
-    # ===== SAVE MEMORY =====
-    history.append({"role": "user", "content": user_text})
-    history.append({"role": "assistant", "content": reply})
-    chat_memory[chat_id] = history[-MAX_HISTORY:]
+    if random.random() < 0.35:
+        reply = random.choice(FUNNY_FILLERS) + " " + reply
 
-    reply = reply + mood_emoji(user_text)
+    if random.random() < 0.25:
+        reply += " " + random.choice(HUMAN_SWEAR_LIGHT)
+
+    reply += mood_emoji(user_text)
+    reply = avoid_repeat(chat_id, reply)
+
+    save_history(chat_id, user_text, reply)
+
+    time.sleep(human_delay(reply))
     send_message(chat_id, reply)
 
     return "ok"
 
-# ==============================
+
+# ==================================================
 # HEALTH CHECK
-# ==============================
+# ==================================================
+
 @app.route("/", methods=["GET"])
 def home():
-    return "Alone bot running 😎"
+    return "Alone ultra human bot running 😎"
 
-# ==============================
-# RUN SERVER
-# ==============================
+
+# ==================================================
+# RUN
+# ==================================================
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
