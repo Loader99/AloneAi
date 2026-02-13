@@ -409,7 +409,6 @@ try:
     send_voice(chat_id, reply)
 except:
     pass
-
 return "ok"
     
 @app.route("/", methods=["GET"])
