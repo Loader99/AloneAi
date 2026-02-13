@@ -393,9 +393,10 @@ def webhook():
         emoji_list = ["🙂","😏","🔥","😎","💀","😂","👀","🤨","😌","🫠"]
         reply = reply + " " + random.choice(emoji_list)
 
-except Exception as e:
-    print("AI ERROR:", e)
-    reply = "network slow hai... baad me bol 😅"
+    except Exception as e:
+        print("AI ERROR:", e)
+        reply = "network slow hai... baad me bol 😅"
+
     save_history(chat_id, "user", user_text)
     save_history(chat_id, "assistant", reply)
 
