@@ -363,12 +363,11 @@ def webhook():
         return "ok"
 
 # ===== AI RESPONSE =====
-# ===== AI RESPONSE =====
-mood = detect_mood(user_text)
-sarcasm = detect_sarcasm(user_text)
-limit_rule = reply_limit(user_text)
+    mood = detect_mood(user_text)
+    sarcasm = detect_sarcasm(user_text)
+    limit_rule = reply_limit(user_text)
 
-update_emotion(chat_id, mood)
+    update_emotion(chat_id, mood)
 
     messages = [{
         "role": "system",
