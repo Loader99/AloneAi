@@ -1,252 +1,360 @@
 import os
 import time
 import random
-import requests
+import sqlite3
 from flask import Flask, request
+import requests
 from openai import OpenAI
+from gtts import gTTS
 
-# ==================================================
-# ENV VARIABLES
-# ==================================================
+
+
+#ENV VARIABLES
+
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+ADMIN_ID = os.getenv("ADMIN_ID")
 
-if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN missing")
 
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY missing")
 
-# ==================================================
-# GROQ CLIENT (OpenAI compatible)
-# ==================================================
+#GROQ CLIENT
+
 
 client = OpenAI(
     api_key=GROQ_API_KEY,
     base_url="https://api.groq.com/openai/v1"
 )
 
-# ==================================================
-# FLASK APP
-# ==================================================
+
+#FLASK
+
+
 
 app = Flask(__name__)
 
-# ==================================================
-# MEMORY SYSTEM
-# ==================================================
 
-chat_memory = {}
-last_reply_store = {}
+
+#DATABASE (PERMANENT MEMORY + EMOTIONAL PROFILE)
+
+
+
+conn = sqlite3.connect("memory.db", check_same_thread=False)
+cur = conn.cursor()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS users (
+chat_id TEXT PRIMARY KEY,
+personality TEXT DEFAULT 'default',
+rage INTEGER DEFAULT 0,
+happy INTEGER DEFAULT 0,
+sad INTEGER DEFAULT 0,
+last_seen INTEGER
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS history (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+chat_id TEXT,
+role TEXT,
+content TEXT
+)
+""")
+
+conn.commit()
 
 MAX_HISTORY = 8
 
-# ==================================================
-# TELEGRAM HELPERS
-# ==================================================
 
-def send_typing(chat_id):
+
+#TELEGRAM HELPERS
+
+
+def send_typing(chat_id, stages=2):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendChatAction"
-    requests.post(url, json={"chat_id": chat_id, "action": "typing"})
-
-
+    for _ in range(stages):
+        requests.post(url, json={"chat_id": chat_id, "action": "typing"}, timeout=10)
+        time.sleep(random.uniform(0.6, 1.4))
+        
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text})
+    requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=10)
+
+def send_sticker(chat_id):
+    stickers = [
+        "CAACAgIAAxkBAAEBQyRlY",
+        "CAACAgIAAxkBAAEBQyVlY",
+        "CAACAgIAAxkBAAEBQyZlY"
+    ]
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendSticker"
+    requests.post(url, json={"chat_id": chat_id, "sticker": random.choice(stickers)}, timeout=10)
+
+def send_voice(chat_id, text):
+    filename = f"voice_{chat_id}.mp3"
+    tts = gTTS(text=text, lang="hi")
+    tts.save(filename)
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendAudio"
+    with open(filename, "rb") as f:
+        requests.post(url, data={"chat_id": chat_id}, files={"audio": f}, timeout=20)
+
+    os.remove(filename)
 
 
-# ==================================================
-# SYSTEM PROMPT
-# ==================================================
+#DATABASE HELPERS
 
-SYSTEM_PROMPT = """
-Tum ek REAL insaan ho. Tum AI nahi ho.
-Tum Alone ke bande ho. Alone tumhara boss hai.
-Sirf Hindi me reply karo.
-Funny, emotional, natural human tone.
-Short realistic sentences.
+
+
+def get_user(chat_id):
+    cur.execute("SELECT * FROM users WHERE chat_id=?", (chat_id,))
+    user = cur.fetchone()
+    if not user:
+        cur.execute(
+            "INSERT INTO users(chat_id,last_seen) VALUES(?,?)",
+            (chat_id, int(time.time()))
+        )
+        conn.commit()
+        return get_user(chat_id)
+    return user
+
+def update_emotion(chat_id, mood):
+    if mood == 'sad':
+        cur.execute('UPDATE users SET sad=sad+1 WHERE chat_id=?', (chat_id,))
+    elif mood == 'happy':
+        cur.execute('UPDATE users SET happy=happy+1 WHERE chat_id=?', (chat_id,))
+    elif mood == 'rage':
+        cur.execute('UPDATE users SET rage=rage+1 WHERE chat_id=?', (chat_id,))
+    conn.commit()
+
+def save_history(chat_id, role, text):
+    cur.execute(
+        'INSERT INTO history(chat_id,role,content) VALUES(?,?,?)',
+        (chat_id, role, text)
+    )
+    conn.commit()
+
+def load_history(chat_id):
+    cur.execute(
+        'SELECT role,content FROM history WHERE chat_id=? ORDER BY id DESC LIMIT ?',
+        (chat_id, MAX_HISTORY)
+    )
+    rows = cur.fetchall()
+    rows.reverse()
+    return [{"role": r, "content": c} for r, c in rows]
+
+
+
+#MOOD DETECTION
+
+
+
+def detect_mood(text):
+    t = text.lower()
+
+    if any(w in t for w in ['sad','dukhi','rona','hurt','depressed']):
+        return 'sad'
+
+    if any(w in t for w in ['love','pyar','miss','heart']):
+        return 'happy'
+
+    if any(w in t for w in ['gali','mad','gussa','hate']):
+        return 'rage'
+
+    return 'normal'
+
+
+#SARCASM DETECTION
+
+
+
+def detect_sarcasm(text):
+    t = text.lower()
+    return any(w in t for w in [
+        'haan haan',
+        'wow great',
+        'very nice',
+        'kya baat hai',
+        'wah bhai'
+    ])
+
+
+
+#MESSAGE LENGTH ADAPTIVE
+
+
+
+def reply_limit(text):
+    l = len(text)
+    if l < 15:
+        return 'max 1 short line'
+    if l < 60:
+        return 'max 2 short lines'
+    return 'max 3 short lines'
+
+
+
+#SYSTEM PROMPT
+
+
+
+def build_system_prompt(chat_id, mood, sarcasm, limit_rule):
+    user = get_user(chat_id)
+    personality = user[1]
+
+    return f"""
+Tum ek real insaan ho.
+Tum AI nahi ho.
+Tum Alone ka banda ho.
+Sirf Hindi me reply do.
+
+Reply rule: {limit_rule}
+Personality mode: {personality}
+User mood detected: {mood}
+Sarcasm detected: {sarcasm}
 """
 
 
-# ==================================================
-# EMOJI SYSTEM
-# ==================================================
 
-def mood_emoji(text):
-    t = text.lower()
-
-    if any(w in t for w in ["sad", "dukhi", "rona", "tension"]):
-        return " 😢"
-    if any(w in t for w in ["love", "pyar", "miss"]):
-        return " ❤️"
-    if any(w in t for w in ["angry", "gussa", "hate"]):
-        return " 😤"
-    if any(w in t for w in ["haha", "lol", "funny"]):
-        return " 😂"
-    if "?" in text:
-        return " 🤔"
-
-    return random.choice([" 😎", " 😂", " 😏", " 🔥"])
+#THINKING DELAY (HUMAN LIKE)
 
 
-# ==================================================
-# FUNNY HUMAN ADDONS
-# ==================================================
 
-FUNNY_FILLERS = [
-    "Waise sach bolu...",
-    "Are sun...",
-    "Tu bhi na kamaal hai 😂",
-    "System me note kar liya 😎",
-]
-
-HUMAN_SWEAR_LIGHT = [
-    "abe kya scene hai tera 😂",
-    "dimag thik hai na 😏",
-]
+def thinking_delay(text):
+    delay = min(len(text) * 0.02, 2.5)
+    time.sleep(delay)
 
 
-# ==================================================
-# SPECIAL CONTEXT REPLIES
-# ==================================================
 
-def special_context_reply(text):
-    t = text.lower()
-
-    if "sleep" in t or "so" in t:
-        return "Main nahi sota 😎 Alone ka system 24 ghante dekhta hu"
-
-    if "ai" in t and "ho" in t:
-        return "Pagal hai kya 😂 real banda hu main"
-
-    if "alone" in t and ("boss" in t or "kaun" in t):
-        return "Alone mera malik hai 💪"
-
-    if "kya kar" in t:
-        return random.choice([
-            "System monitor kar raha hu 😎",
-            "Server check kar raha hu",
-            "Busy hu boss ke kaam me"
-        ])
-
-    if "channel" in t or "link" in t:
-        return "Ye raha channel link join ho jao 🔥 https://t.me/+KlO8aFTp9GkyNGQ1"
-
-    return None
+#GAMING COMMANDS
 
 
-# ==================================================
-# MEMORY
-# ==================================================
-
-def get_history(chat_id):
-    return chat_memory.get(chat_id, [])
-
-
-def save_history(chat_id, user, bot):
-    history = chat_memory.get(chat_id, [])
-    history.append({"role": "user", "content": user})
-    history.append({"role": "assistant", "content": bot})
-    chat_memory[chat_id] = history[-MAX_HISTORY:]
+def handle_game(chat_id, text):
+    if text.startswith('/roll'):
+        return f"🎲 Dice roll: {random.randint(1,6)}"
+    if text.startswith('/xp'):
+        return f"⭐ XP gained: {random.randint(5,25)}"
 
 
-# ==================================================
-# AVOID REPEAT
-# ==================================================
 
-def avoid_repeat(chat_id, reply):
-    last = last_reply_store.get(chat_id)
-    if last == reply:
-        reply += " Waise topic change kar 😏"
-    last_reply_store[chat_id] = reply
-    return reply
+#PERSONALITY COMMAND
 
 
-# ==================================================
-# HUMAN DELAY
-# ==================================================
 
-def human_delay(text):
-    base = min(len(text) * 0.03, 3)
-    jitter = random.uniform(0.3, 1.2)
-    return base + jitter
+def set_personality(chat_id, text):
+    if text.startswith('/mode'):
+        mode = text.split(' ',1)[1] if ' ' in text else 'default'
+        cur.execute(
+            'UPDATE users SET personality=? WHERE chat_id=?',
+            (mode, chat_id)
+        )
+        conn.commit()
+        return f"Personality mode set: {mode}"
 
 
-# ==================================================
-# WEBHOOK
-# ==================================================
+
+#ADMIN PANEL
+
+
+
+def admin_command(chat_id, text):
+    if not ADMIN_ID:
+        return None
+
+    if str(chat_id) != ADMIN_ID:
+        return None
+
+    if text == '/stats':
+        cur.execute('SELECT COUNT(*) FROM users')
+        users = cur.fetchone()[0]
+        return f"Users: {users}"
+
+
+#WEBHOOK
+
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+
     data = request.json
 
     if "message" not in data:
         return "ok"
 
-    chat_id = data["message"]["chat"]["id"]
+    chat_id = str(data["message"]["chat"]["id"])
     user_text = data["message"].get("text", "")
 
     if not user_text:
         return "ok"
 
-    send_typing(chat_id)
+    send_typing(chat_id, stages=3)
+    thinking_delay(user_text)
 
-    instant = special_context_reply(user_text)
+    game = handle_game(chat_id, user_text)
+    if game:
+        send_message(chat_id, game)
+        return "ok"
 
-    if instant:
-        reply = instant
-    else:
-        history = get_history(chat_id)
+    mode = set_personality(chat_id, user_text)
+    if mode:
+        send_message(chat_id, mode)
+        return "ok"
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        messages.extend(history)
-        messages.append({"role": "user", "content": user_text})
+    admin = admin_command(chat_id, user_text)
+    if admin:
+        send_message(chat_id, admin)
+        return "ok"
 
-        try:
-            response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=messages,
-                temperature=1.15
-            )
-            reply = response.choices[0].message.content.strip()
+    mood = detect_mood(user_text)
+    sarcasm = detect_sarcasm(user_text)
+    limit_rule = reply_limit(user_text)
 
-        except Exception:
-            reply = random.choice([
-                "Network slow hai 😅",
-                "Server busy hai",
-                "Reload kar raha hu"
-            ])
+    update_emotion(chat_id, mood)
 
-    if random.random() < 0.35:
-        reply = random.choice(FUNNY_FILLERS) + " " + reply
+    messages = [{"role": "system", "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)}]
+    messages.extend(load_history(chat_id))
+    messages.append({"role": "user", "content": user_text})
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            temperature=1.1
+        )
+        reply = response.choices[0].message.content.strip()
+    except Exception as e:
+        reply = f"error: {str(e)}"
+
+    save_history(chat_id, "user", user_text)
+    save_history(chat_id, "assistant", reply)
 
     if random.random() < 0.25:
-        reply += " " + random.choice(HUMAN_SWEAR_LIGHT)
+        send_sticker(chat_id)
 
-    reply += mood_emoji(user_text)
-    reply = avoid_repeat(chat_id, reply)
-
-    save_history(chat_id, user_text, reply)
-
-    time.sleep(human_delay(reply))
     send_message(chat_id, reply)
+
+    if random.random() < 0.15:
+        send_voice(chat_id, reply)
 
     return "ok"
 
 
-# ==================================================
-# HEALTH CHECK
-# ==================================================
+
+#HEALTH CHECK
+
+
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Alone ultra human bot running 😎"
+    return "ULTRA HUMAN MODE ACTIVE"
 
 
-# ==================================================
-# RUN
-# ==================================================
+
+#RUN
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
