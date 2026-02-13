@@ -366,6 +366,7 @@ def webhook():
     mood = detect_mood(user_text)
     def detect_intent(text):
     t = text.lower()
+    return "normal"
     if "help" in t:
         return "help"
     if "joke" in t:
