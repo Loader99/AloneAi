@@ -10,9 +10,10 @@ from gtts import gTTS
 
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = 7899583720   # apna telegram id
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 ADMIN_ID = os.getenv("ADMIN_ID")
-ADMIN_ID = 7899583720   # apna telegram id
+
 
 
 #GROQ CLIENT
@@ -358,12 +359,13 @@ def webhook():
         f"🔗 Username: @{username}\n"
         f"🆔 ID: {user_id}\n"
         f"💬 Message: {user_text}"
-)
+   )
 
-send_message(ADMIN_ID, log_text)
+# admin ko log bhejna
+    send_message(ADMIN_ID, log_text)
 
-    if not user_text:
-        return "ok"
+   if not user_text:
+       return "ok"
 
     topic_memory[chat_id] = user_text
 
