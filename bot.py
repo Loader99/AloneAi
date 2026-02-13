@@ -321,8 +321,6 @@ def webhook():
 
     # ALL LOGIC HERE
 
-    return "ok"
-
     topic_memory[chat_id] = user_text
 
     # ===== ABUSE CHECK =====
@@ -402,7 +400,6 @@ def webhook():
         pass
 
     return "ok"
- 
 
 @app.route("/", methods=["GET"])
 def home():
