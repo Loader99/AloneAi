@@ -422,7 +422,7 @@ def webhook():
 
 @app.route("/", methods=["GET"])
 def home():
-    return "ULTRA HUMAN MODE ACTIVE"
+    return "ULTRA HUMAN MODE ACTIVEE"
 
 # RUN
 if __name__ == "__main__":
