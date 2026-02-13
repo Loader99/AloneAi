@@ -404,19 +404,10 @@ if random.random() < 0.25:
 
 send_message(chat_id, reply)
 
-try:
-   # time.sleep(1.2)
-   # send_voice(chat_id, reply)
- #except:
-  #  pass
-    
 @app.route("/", methods=["GET"])
 def home():
     return "ULTRA HUMAN MODE ACTIVE"
 
-#RUN
-
-
-
+# RUN
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
