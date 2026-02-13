@@ -258,7 +258,12 @@ RULES:
 13. Agar user tume gali diya tu tum return gali do.
 14. Agar user tume puche ki tumara creater kon he to tum @alonee_op ye mere boss he malik h bologhe.
 15. Agar user koi gali kare to 2 line me hi gali dena he unko.
-16. Agar user ko tum reply doge to reply ke baad bolana ki kya help chahiye bata..?.
+16. Agar user ko tum reply doge to reply ke baad bolana ki or kya help chahiye bata..?.
+17. Agar user Bkl gand koi bhi gali diya to use gali dena har baar gali repeat mat karana.
+18. Agar user Gali de tume bhi gali deni had par karana he alone ko gali diya to gali repeat ni karana h rendom gali har baar alag.
+19. Agar user samane wala english bhi bolo Hindi me reply Dena.
+20. Agar user tume randi chud bsdk madarchod aise bole tu time usi ki bhasha me baat karana.
+
 
 User last topic: {last_topic}
 User mood: {mood}
@@ -339,15 +344,20 @@ def webhook():
 
     topic_memory[chat_id] = user_text
 
-    # ===== ABUSE CHECK =====
-    if contains_abuse(user_text):
-        gali_reply = [
-            "abe chup reh 😏",
-            "dimag kharab hai kya 🤨",
-            "zyada hero mat ban 😎",
-            "control me reh 🔥"
-        ]
-        send_message(chat_id, random.choice(gali_reply))
+        # ===== ABUSE CHECK =====
+ if contains_abuse(user_text):
+
+    user = data["message"].get("from", {})
+        username = user.get("username")
+
+        if username:
+            name = "@" + username
+        else:
+            name = user.get("first_name", "bhai")
+
+        reply = f"{name} bhai gali mat do 😐\nmain help karne ke liye hu… acha baat karo."
+
+        send_message(chat_id, reply)
         return "ok"
 
     # ===== NORMAL FLOW =====
