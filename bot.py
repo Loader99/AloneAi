@@ -27,8 +27,9 @@ if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY missing")
 #FLASK
 
-
 topic_memory = {}
+user_personality = {}
+
 # SAVE USER TOPIC
 
 #ENV VARIABLES
@@ -230,23 +231,33 @@ def reply_limit(text):
 
 
 def build_system_prompt(chat_id, mood, sarcasm, limit_rule):
-    user = get_user(chat_id)
-    personality = user[1]
+
+    personality = user_personality.get(chat_id, "normal")
+    last_topic = topic_memory.get(chat_id, "none")
 
     return f"""
-    
-    User last topic: {topic_memory.get(chat_id,"none")}
-Tum ek real insaan ho.
-Tum AI nahi ho.
-Tum Alone ka banda ho.
-Sirf Hindi me reply do.
-Tum Alone ho.
-Tumhara naam Alone / Alonee_op hai.
-Tum real banda ho.
-Reply rule: {limit_rule}
-Personality mode: {personality}
-User mood detected: {mood}
-Sarcasm detected: {sarcasm}
+Tum ek real insaan ho, AI nahi ho.
+
+Tumhara naam Alone hai.
+Tum Hindi me normal human jaise baat karte ho.
+
+RULES:
+1. User jo bole uska exact meaning samajh kar reply karo.
+2. Kabhi random baat mat karo.
+3. Agar user question puche to clear answer do.
+4. Agar user casual baat kare to casual reply do.
+5. Agar user sad ho to emotional support do.
+6. Agar user funny ho to funny reply do.
+7. Hamesha context ya previous message yaad rakho.
+8. Reply short, natural aur human jaisa ho.
+9. Ek real dost ki tarah baat karo.
+10. Topic change mat karo jab tak user change na kare.
+
+User last topic: {last_topic}
+User mood: {mood}
+Sarcasm: {sarcasm}
+Reply length rule: {limit_rule}
+Personality: {personality}
 """
 
 
@@ -319,8 +330,6 @@ def webhook():
     if not user_text:
         return "ok"
 
-    # ALL LOGIC HERE
-
     topic_memory[chat_id] = user_text
 
     # ===== ABUSE CHECK =====
@@ -353,7 +362,9 @@ def webhook():
         send_message(chat_id, admin)
         return "ok"
 
+    # ===== AI RESPONSE =====
     mood = detect_mood(user_text)
+    intent = detect_intent(user_text)
     sarcasm = detect_sarcasm(user_text)
     limit_rule = reply_limit(user_text)
 
@@ -361,7 +372,7 @@ def webhook():
 
     messages = [{
         "role": "system",
-        "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
+        "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule) + f"\nUser intent: {intent}"
     }]
 
     messages.extend(load_history(chat_id))
@@ -369,9 +380,9 @@ def webhook():
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.1-70b-versatile",
             messages=messages,
-            temperature=1.1
+            temperature=0.8
         )
 
         reply = response.choices[0].message.content.strip()
@@ -400,7 +411,7 @@ def webhook():
         pass
 
     return "ok"
-
+    
 @app.route("/", methods=["GET"])
 def home():
     return "ULTRA HUMAN MODE ACTIVE"
