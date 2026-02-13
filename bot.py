@@ -364,13 +364,15 @@ def webhook():
 
 # ===== AI RESPONSE =====
     mood = detect_mood(user_text)
-    def detect_intent(text):
+def detect_intent(text):
     t = text.lower()
-    return "normal"
+
     if "help" in t:
         return "help"
+
     if "joke" in t:
         return "fun"
+
     return "normal"
     sarcasm = detect_sarcasm(user_text)
     limit_rule = reply_limit(user_text)
