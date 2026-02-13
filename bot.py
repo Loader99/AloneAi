@@ -348,16 +348,15 @@ def webhook():
     if contains_abuse(user_text):
 
         user = data["message"].get("from", {})
-        username = user.get("username")
+        user_id = user.get("id")
+        first_name = user.get("first_name", "bhai")
 
-        if username:
-            name = "@" + username
-        else:
-            name = user.get("first_name", "bhai")
+    # clickable tag (username ho ya na ho)
+        name = f'<a href="tg://user?id={user_id}">{first_name}</a>'
 
-        reply = f"{name} bhai gali mat do 😐\nmain help karne ke liye hu… acha baat karo."
+        reply = f"{name} bhai gali mat do 🙂 main help karne ke liye hu... acha baat karo."
 
-        send_message(chat_id, reply)
+        send_message(chat_id, reply, parse_mode="HTML")
         return "ok"
 
     # ===== NORMAL FLOW =====
@@ -422,7 +421,7 @@ def webhook():
 
 @app.route("/", methods=["GET"])
 def home():
-    return "ULTRA HUMAN MODE ACTIVEE"
+    return "ULTRA HUMAN MODE ACTIVEE V1 ✅"
 
 # RUN
 if __name__ == "__main__":
