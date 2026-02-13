@@ -1,6 +1,7 @@
 import os
 import time
 import random
+import requests
 import sqlite3
 from flask import Flask, request
 from openai import OpenAI
@@ -44,11 +45,12 @@ def contains_abuse(text):
 
 
 def get_db():
-conn = get_db()
-cur = conn.cursor()
     conn = sqlite3.connect("memory.db", check_same_thread=False, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL;")
     return conn
+
+conn = get_db()
+cur = conn.cursor()
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -310,93 +312,85 @@ def webhook():
     if not user_text:
         return "ok"
 
-    # SAVE TOPIC
     topic_memory[chat_id] = user_text
 
-    # ABUSE DETECT
-# ABUSE DETECT
-def contains_abuse(text):
-    words = re.findall(r'\b\w+\b', text.lower())
-    return any(w in bad_words for w in words)
+    # ===== ABUSE CHECK =====
+    if contains_abuse(user_text):
+        gali_reply = [
+            "abe chup reh 😏",
+            "dimag kharab hai kya 🤨",
+            "zyada hero mat ban 😎",
+            "control me reh 🔥"
+        ]
+        send_message(chat_id, random.choice(gali_reply))
+        return "ok"
 
-# ===== ABUSE CHECK =====
-if contains_abuse(user_text):
-    gali_reply = [
-        "abe chup be bhosdike 😏",
-        "dimag kharab hai kya 🤨",
-        "zyada hero mat ban 😎",
-        "control me reh warna system tod dunga 🔥"
-    ]
-    send_message(chat_id, random.choice(gali_reply))
+    # ===== NORMAL FLOW =====
+    send_typing(chat_id, stages=3)
+    thinking_delay(user_text)
+
+    game = handle_game(chat_id, user_text)
+    if game:
+        send_message(chat_id, game)
+        return "ok"
+
+    mode = set_personality(chat_id, user_text)
+    if mode:
+        send_message(chat_id, mode)
+        return "ok"
+
+    admin = admin_command(chat_id, user_text)
+    if admin:
+        send_message(chat_id, admin)
+        return "ok"
+
+    mood = detect_mood(user_text)
+    sarcasm = detect_sarcasm(user_text)
+    limit_rule = reply_limit(user_text)
+
+    update_emotion(chat_id, mood)
+
+    messages = [{
+        "role": "system",
+        "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
+    }]
+
+    messages.extend(load_history(chat_id))
+    messages.append({"role": "user", "content": user_text})
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            temperature=1.1
+        )
+
+        reply = response.choices[0].message.content.strip()
+
+        if mood == "sad":
+            reply = "kya hua bata mujhe... " + reply
+
+        emoji_list = ["🙂","😏","🔥","😎","💀","😂","👀","🤨","😌","🫠"]
+        reply = reply + " " + random.choice(emoji_list)
+
+    except Exception:
+        reply = "network slow hai... baad me bol 😅"
+
+    save_history(chat_id, "user", user_text)
+    save_history(chat_id, "assistant", reply)
+
+    if random.random() < 0.25:
+        send_sticker(chat_id)
+
+    send_message(chat_id, reply)
+
+    try:
+        time.sleep(1.2)
+        send_voice(chat_id, reply)
+    except:
+        pass
+
     return "ok"
-
-
-# ===== NORMAL FLOW =====
-send_typing(chat_id, stages=3)
-thinking_delay(user_text)
-
-game = handle_game(chat_id, user_text)
-if game:
-    send_message(chat_id, game)
-    return "ok"
-
-mode = set_personality(chat_id, user_text)
-if mode:
-    send_message(chat_id, mode)
-    return "ok"
-
-admin = admin_command(chat_id, user_text)
-if admin:
-    send_message(chat_id, admin)
-    return "ok"
-
-mood = detect_mood(user_text)
-sarcasm = detect_sarcasm(user_text)
-limit_rule = reply_limit(user_text)
-
-update_emotion(chat_id, mood)
-
-messages = [{
-    "role": "system",
-    "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
-}]
-
-messages.extend(load_history(chat_id))
-messages.append({"role": "user", "content": user_text})
-
-try:
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=messages,
-        temperature=1.1
-    )
-
-    reply = response.choices[0].message.content.strip()
-
-    if mood == "sad":
-        reply = "kya hua bata mujhe... " + reply
-
-    emoji_list = ["🙂","😏","🔥","😎","💀","😂","👀","🤨","😌","🫠"]
-    reply = reply + " " + random.choice(emoji_list)
-
-except Exception:
-    reply = "network slow hai... baad me bol 😅"
-
-save_history(chat_id, "user", user_text)
-save_history(chat_id, "assistant", reply)
-
-if random.random() < 0.25:
-    send_sticker(chat_id)
-
-send_message(chat_id, reply)
-
-try:
-    time.sleep(1.2)
-    send_voice(chat_id, reply)
-except:
-    pass
-
-return "ok"
  
 
 @app.route("/", methods=["GET"])
