@@ -375,7 +375,7 @@ mood = detect_mood(user_text)
     messages = [{
         "role": "system",
         "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
-    }]>
+    }]
     messages.extend(load_history(chat_id))
     messages.append({"role": "user", "content": user_text})
 
