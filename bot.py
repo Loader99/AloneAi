@@ -34,12 +34,18 @@ topic_memory = {}
 app = Flask(__name__)
 
 bad_words = ["madarchod","bhosdike","chutiya","gandu","lund","fuck","bc","mc"]
+import re
 
+def contains_abuse(text):
+    words = re.findall(r'\b\w+\b', text.lower())
+    return any(w in bad_words for w in words)
 #DATABASE (PERMANENT MEMORY + EMOTIONAL PROFILE)
 
 
 
 def get_db():
+conn = get_db()
+cur = conn.cursor()
     conn = sqlite3.connect("memory.db", check_same_thread=False, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL;")
     return conn
