@@ -3,10 +3,9 @@ import time
 import random
 import sqlite3
 from flask import Flask, request
-import requests
 from openai import OpenAI
 from gtts import gTTS
-import re
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -309,11 +308,10 @@ def webhook():
     topic_memory[chat_id] = user_text
 
     # ABUSE DETECT
- import re
+# ABUSE DETECT
 def contains_abuse(text):
     words = re.findall(r'\b\w+\b', text.lower())
     return any(w in bad_words for w in words)
-
 
 # ===== ABUSE CHECK =====
 if contains_abuse(user_text):
