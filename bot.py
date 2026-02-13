@@ -12,7 +12,7 @@ from gtts import gTTS
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 ADMIN_ID = os.getenv("ADMIN_ID")
-
+ADMIN_ID = 7899583720   # apna telegram id
 
 
 #GROQ CLIENT
@@ -36,7 +36,7 @@ user_personality = {}
 
 app = Flask(__name__)
 
-bad_words = ["madarchod","bhosdike","chutiya","gandu","lund","fuck","bc","mc"]
+bad_words = ["madarchod","bsdk","randi","mc","gand","terimakichut","lode","bhosdike","chutiya","gandu","lund","fuck","bc","mc"]
 
 
 def contains_abuse(text):
@@ -98,7 +98,16 @@ def send_typing(chat_id, stages=2):
         
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=10)
+
+    payload = {
+        "chat_id": chat_id,
+        "text": text
+    }
+
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    requests.post(url, json=payload, timeout=10)
 
 def send_sticker(chat_id):
     stickers = [
@@ -338,6 +347,20 @@ def webhook():
 
     chat_id = str(data["message"]["chat"]["id"])
     user_text = data["message"].get("text", "")
+    user = data["message"].get("from", {})
+    user_id = user.get("id")
+    username = user.get("username", "no_username")
+    first_name = user.get("first_name", "Unknown")
+
+    log_text = (
+    f"📩 New Message\n"
+    f"👤 Name: {first_name}\n"
+    f"🔗 Username: @{username}\n"
+    f"🆔 ID: {user_id}\n"
+    f"💬 Message: {user_text}"
+)
+
+send_message(ADMIN_ID, log_text)
 
     if not user_text:
         return "ok"
@@ -421,7 +444,7 @@ def webhook():
 
 @app.route("/", methods=["GET"])
 def home():
-    return "ULTRA HUMAN MODE ACTIVEE V1 ✅"
+    return "ULTRA HUMAN MODE ACTIVEE V1  B1✅"
 
 # RUN
 if __name__ == "__main__":
