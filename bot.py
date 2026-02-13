@@ -12,7 +12,7 @@ from gtts import gTTS
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 7899583720   # apna telegram id
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-ADMIN_ID = os.getenv("ADMIN_ID")
+
 
 
 
@@ -367,7 +367,7 @@ def webhook():
     if not user_text:
         return "ok"
 
-   topic_memory[chat_id] = user_text
+    topic_memory[chat_id] = user_text
 
         # ===== ABUSE CHECK =====
     if contains_abuse(user_text):
