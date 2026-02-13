@@ -310,7 +310,6 @@ def webhook():
 
     # ABUSE DETECT
  import re
-
 def contains_abuse(text):
     words = re.findall(r'\b\w+\b', text.lower())
     return any(w in bad_words for w in words)
