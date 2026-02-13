@@ -345,9 +345,9 @@ def webhook():
     topic_memory[chat_id] = user_text
 
         # ===== ABUSE CHECK =====
- if contains_abuse(user_text):
+    if contains_abuse(user_text):
 
-    user = data["message"].get("from", {})
+        user = data["message"].get("from", {})
         username = user.get("username")
 
         if username:
