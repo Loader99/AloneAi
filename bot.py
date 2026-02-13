@@ -362,21 +362,21 @@ def webhook():
         send_message(chat_id, admin)
         return "ok"
 
-    # ===== AI RESPONSE =====
-    mood = detect_mood(user_text)
-    intent = detect_intent(user_text)
-    sarcasm = detect_sarcasm(user_text)
-    limit_rule = reply_limit(user_text)
+# ===== AI RESPONSE =====
+mood = detect_mood(user_text)
+intent = detect_intent(user_text)
+sarcasm = detect_sarcasm(user_text)
+limit_rule = reply_limit(user_text)
 
-    update_emotion(chat_id, mood)
+update_emotion(chat_id, mood)
 
-    messages = [{
-        "role": "system",
-        "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule) + f"\nUser intent: {intent}"
-    }]
+messages = [{
+    "role": "system",
+    "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
+}]
 
-    messages.extend(load_history(chat_id))
-    messages.append({"role": "user", "content": user_text})
+messages.extend(load_history(chat_id))
+messages.append({"role": "user", "content": user_text})
 
 try:
     response = client.chat.completions.create(
@@ -396,21 +396,21 @@ except Exception as e:
     print("AI ERROR:", e)
     reply = "network slow hai... baad me bol 😅"
 
-    save_history(chat_id, "user", user_text)
-    save_history(chat_id, "assistant", reply)
+save_history(chat_id, "user", user_text)
+save_history(chat_id, "assistant", reply)
 
-    if random.random() < 0.25:
-        send_sticker(chat_id)
+if random.random() < 0.25:
+    send_sticker(chat_id)
 
-    send_message(chat_id, reply)
+send_message(chat_id, reply)
 
-    try:
-        time.sleep(1.2)
-        send_voice(chat_id, reply)
-    except:
-        pass
+try:
+    time.sleep(1.2)
+    send_voice(chat_id, reply)
+except:
+    pass
 
-    return "ok"
+return "ok"
     
 @app.route("/", methods=["GET"])
 def home():
