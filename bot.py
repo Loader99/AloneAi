@@ -405,11 +405,10 @@ if random.random() < 0.25:
 send_message(chat_id, reply)
 
 try:
-    time.sleep(1.2)
-    send_voice(chat_id, reply)
-except:
-    pass
-return "ok"
+   # time.sleep(1.2)
+   # send_voice(chat_id, reply)
+ #except:
+  #  pass
     
 @app.route("/", methods=["GET"])
 def home():
