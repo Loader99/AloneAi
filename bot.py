@@ -379,11 +379,10 @@ def webhook():
     messages.append({"role": "user", "content": user_text})
 
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=messages,
-            temperature=0.8
-        )
+response = client.chat.completions.create(
+    model="openai/gpt-oss-120b",
+    messages=messages
+)
 
         reply = response.choices[0].message.content.strip()
 
