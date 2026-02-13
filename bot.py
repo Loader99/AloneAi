@@ -238,7 +238,8 @@ def build_system_prompt(chat_id, mood, sarcasm, limit_rule):
     return f"""
 Tum ek real insaan ho, AI nahi ho.
 
-Tumhara naam Alone hai.
+Tumhara naam Alone ka Banda hu.
+
 Tum Hindi me normal human jaise baat karte ho.
 
 RULES:
@@ -252,6 +253,9 @@ RULES:
 8. Reply short, natural aur human jaisa ho.
 9. Ek real dost ki tarah baat karo.
 10. Topic change mat karo jab tak user change na kare.
+11. Agar tume koi user puche Chaneel link ya channel ya alone ka channel to tum ye sida link doghe  https://t.me/+BhgsK36OK6BhYzc1.
+12. Agar user alone ko gali de na tab use ruturn gali do.
+13. Agar user tume gali diya tu tum return gali do.
 
 User last topic: {last_topic}
 User mood: {mood}
@@ -362,8 +366,7 @@ def webhook():
         send_message(chat_id, admin)
         return "ok"
 
-# ===== AI RESPONSE =====
-    mood = detect_mood(user_text)
+mood = detect_mood(user_text)
     sarcasm = detect_sarcasm(user_text)
     limit_rule = reply_limit(user_text)
 
@@ -372,14 +375,13 @@ def webhook():
     messages = [{
         "role": "system",
         "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
-    }]
-
+    }]>
     messages.extend(load_history(chat_id))
     messages.append({"role": "user", "content": user_text})
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="openai/gpt-oss-120b",
             messages=messages
         )
 
