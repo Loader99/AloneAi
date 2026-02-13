@@ -97,7 +97,7 @@ def send_typing(chat_id, stages=2):
             pass
         time.sleep(random.uniform(0.6, 1.4))
         
-def send_message(chat_id, text):
+def send_message(chat_id, text, parse_mode=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     payload = {
@@ -367,7 +367,7 @@ def webhook():
     if not user_text:
         return "ok"
 
-    topic_memory[chat_id] = user_text
+   topic_memory[chat_id] = user_text
 
         # ===== ABUSE CHECK =====
     if contains_abuse(user_text):
