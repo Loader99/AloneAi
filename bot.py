@@ -363,46 +363,54 @@ def webhook():
         return "ok"
 
 # ===== AI RESPONSE =====
-mood = detect_mood(user_text)
-intent = detect_intent(user_text)
-sarcasm = detect_sarcasm(user_text)
-limit_rule = reply_limit(user_text)
+    mood = detect_mood(user_text)
+    def detect_intent(text):
+    t = text.lower()
+    if "help" in t:
+        return "help"
+    if "joke" in t:
+        return "fun"
+    return "normal"
+    sarcasm = detect_sarcasm(user_text)
+    limit_rule = reply_limit(user_text)
 
-update_emotion(chat_id, mood)
+    update_emotion(chat_id, mood)
 
-messages = [{
-    "role": "system",
-    "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
-}]
+    messages = [{
+        "role": "system",
+        "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
+    }]
 
-messages.extend(load_history(chat_id))
-messages.append({"role": "user", "content": user_text})
+    messages.extend(load_history(chat_id))
+    messages.append({"role": "user", "content": user_text})
 
-try:
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=messages
-    )
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages
+        )
 
-    reply = response.choices[0].message.content.strip()
+        reply = response.choices[0].message.content.strip()
 
-    if mood == "sad":
-        reply = "kya hua bata mujhe... " + reply
+        if mood == "sad":
+            reply = "kya hua bata mujhe... " + reply
 
-    emoji_list = ["🙂","😉","🔥","😎","💀","😂","👀","🤔","😌","🫡"]
-    reply = reply + " " + random.choice(emoji_list)
+        emoji_list = ["🙂","😉","🔥","😎","💀","😂","👀","🤔","😌","🫡"]
+        reply = reply + " " + random.choice(emoji_list)
 
-except Exception as e:
-    print("AI ERROR:", e)
-    reply = "network slow hai... baad me bol 😅"
+    except Exception as e:
+        print("AI ERROR:", e)
+        reply = "network slow hai... baad me bol 😅"
 
-save_history(chat_id, "user", user_text)
-save_history(chat_id, "assistant", reply)
+    save_history(chat_id, "user", user_text)
+    save_history(chat_id, "assistant", reply)
 
-if random.random() < 0.25:
-    send_sticker(chat_id)
+    if random.random() < 0.25:
+        send_sticker(chat_id)
 
-send_message(chat_id, reply)
+    send_message(chat_id, reply)
+
+    return "ok"
 
 @app.route("/", methods=["GET"])
 def home():
