@@ -6,12 +6,7 @@ from flask import Flask, request
 import requests
 from openai import OpenAI
 from gtts import gTTS
-
-
-
-#ENV VARIABLES
-
-
+import re
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -27,21 +22,28 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY missing")
 #FLASK
 
 
+topic_memory = {}
+# SAVE USER TOPIC
+
+#ENV VARIABLES
 
 app = Flask(__name__)
 
-
+bad_words = ["madarchod","bhosdike","chutiya","gandu","lund","fuck","bc","mc"]
 
 #DATABASE (PERMANENT MEMORY + EMOTIONAL PROFILE)
 
 
 
-conn = sqlite3.connect("memory.db", check_same_thread=False)
-cur = conn.cursor()
+def get_db():
+    conn = sqlite3.connect("memory.db", check_same_thread=False, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -96,13 +98,12 @@ def send_voice(chat_id, text):
     tts = gTTS(text=text, lang="hi")
     tts.save(filename)
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendAudio"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice"
     with open(filename, "rb") as f:
-        requests.post(url, data={"chat_id": chat_id}, files={"audio": f}, timeout=20)
+        requests.post(url, data={"chat_id": chat_id}, files={"voice": f}, timeout=20)
 
     os.remove(filename)
-
-
+    
 #DATABASE HELPERS
 
 
@@ -167,7 +168,21 @@ def detect_mood(text):
 
 #SARCASM DETECTION
 
+def detect_intent(text):
+    t = text.lower()
 
+    if "kaun" in t or "kon" in t:
+        return "question_person"
+    if "kya" in t or "kyu" in t:
+        return "question_general"
+    if any(w in t for w in ["bore", "sad", "dukhi"]):
+        return "emotion_low"
+    if any(w in t for w in ["haha", "lol"]):
+        return "fun"
+    if any(w in t for w in ["gaali", "gussa"]):
+        return "anger"
+
+    return "normal"
 
 def detect_sarcasm(text):
     t = text.lower()
@@ -204,11 +219,15 @@ def build_system_prompt(chat_id, mood, sarcasm, limit_rule):
     personality = user[1]
 
     return f"""
+    
+    User last topic: {topic_memory.get(chat_id,"none")}
 Tum ek real insaan ho.
 Tum AI nahi ho.
 Tum Alone ka banda ho.
 Sirf Hindi me reply do.
-
+Tum Alone ho.
+Tumhara naam Alone / Alonee_op hai.
+Tum real banda ho.
 Reply rule: {limit_rule}
 Personality mode: {personality}
 User mood detected: {mood}
@@ -270,10 +289,7 @@ def admin_command(chat_id, text):
         users = cur.fetchone()[0]
         return f"Users: {users}"
 
-
 #WEBHOOK
-
-
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -289,68 +305,100 @@ def webhook():
     if not user_text:
         return "ok"
 
-    send_typing(chat_id, stages=3)
-    thinking_delay(user_text)
+    # SAVE TOPIC
+    topic_memory[chat_id] = user_text
 
-    game = handle_game(chat_id, user_text)
-    if game:
-        send_message(chat_id, game)
-        return "ok"
+    # ABUSE DETECT
+ import re
 
-    mode = set_personality(chat_id, user_text)
-    if mode:
-        send_message(chat_id, mode)
-        return "ok"
+def contains_abuse(text):
+    words = re.findall(r'\b\w+\b', text.lower())
+    return any(w in bad_words for w in words)
 
-    admin = admin_command(chat_id, user_text)
-    if admin:
-        send_message(chat_id, admin)
-        return "ok"
 
-    mood = detect_mood(user_text)
-    sarcasm = detect_sarcasm(user_text)
-    limit_rule = reply_limit(user_text)
-
-    update_emotion(chat_id, mood)
-
-    messages = [{"role": "system", "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)}]
-    messages.extend(load_history(chat_id))
-    messages.append({"role": "user", "content": user_text})
-
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=1.1
-        )
-        reply = response.choices[0].message.content.strip()
-    except Exception as e:
-        reply = f"error: {str(e)}"
-
-    save_history(chat_id, "user", user_text)
-    save_history(chat_id, "assistant", reply)
-
-    if random.random() < 0.25:
-        send_sticker(chat_id)
-
-    send_message(chat_id, reply)
-
-    if random.random() < 0.15:
-        send_voice(chat_id, reply)
-
+# ===== ABUSE CHECK =====
+if contains_abuse(user_text):
+    gali_reply = [
+        "abe chup be bhosdike 😏",
+        "dimag kharab hai kya 🤨",
+        "zyada hero mat ban 😎",
+        "control me reh warna system tod dunga 🔥"
+    ]
+    send_message(chat_id, random.choice(gali_reply))
     return "ok"
 
 
+# ===== NORMAL FLOW =====
+send_typing(chat_id, stages=3)
+thinking_delay(user_text)
 
-#HEALTH CHECK
+game = handle_game(chat_id, user_text)
+if game:
+    send_message(chat_id, game)
+    return "ok"
 
+mode = set_personality(chat_id, user_text)
+if mode:
+    send_message(chat_id, mode)
+    return "ok"
 
+admin = admin_command(chat_id, user_text)
+if admin:
+    send_message(chat_id, admin)
+    return "ok"
+
+mood = detect_mood(user_text)
+sarcasm = detect_sarcasm(user_text)
+limit_rule = reply_limit(user_text)
+
+update_emotion(chat_id, mood)
+
+messages = [{
+    "role": "system",
+    "content": build_system_prompt(chat_id, mood, sarcasm, limit_rule)
+}]
+
+messages.extend(load_history(chat_id))
+messages.append({"role": "user", "content": user_text})
+
+try:
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=messages,
+        temperature=1.1
+    )
+
+    reply = response.choices[0].message.content.strip()
+
+    if mood == "sad":
+        reply = "kya hua bata mujhe... " + reply
+
+    emoji_list = ["🙂","😏","🔥","😎","💀","😂","👀","🤨","😌","🫠"]
+    reply = reply + " " + random.choice(emoji_list)
+
+except Exception:
+    reply = "network slow hai... baad me bol 😅"
+
+save_history(chat_id, "user", user_text)
+save_history(chat_id, "assistant", reply)
+
+if random.random() < 0.25:
+    send_sticker(chat_id)
+
+send_message(chat_id, reply)
+
+try:
+    time.sleep(1.2)
+    send_voice(chat_id, reply)
+except:
+    pass
+
+return "ok"
+ 
 
 @app.route("/", methods=["GET"])
 def home():
     return "ULTRA HUMAN MODE ACTIVE"
-
-
 
 #RUN
 
