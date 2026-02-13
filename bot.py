@@ -364,9 +364,9 @@ def webhook():
 # admin ko log bhejna
     send_message(ADMIN_ID, log_text)
 
-        if not user_text:
+    if not user_text:
         return "ok"
-        
+
     topic_memory[chat_id] = user_text
 
         # ===== ABUSE CHECK =====
