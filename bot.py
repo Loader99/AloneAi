@@ -366,7 +366,7 @@ def webhook():
         send_message(chat_id, admin)
         return "ok"
 
-mood = detect_mood(user_text)
+    mood = detect_mood(user_text)
     sarcasm = detect_sarcasm(user_text)
     limit_rule = reply_limit(user_text)
 
