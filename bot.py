@@ -2,6 +2,7 @@ import os
 import time
 import random
 import requests
+import re
 import sqlite3
 from flask import Flask, request
 from openai import OpenAI
@@ -35,7 +36,7 @@ topic_memory = {}
 app = Flask(__name__)
 
 bad_words = ["madarchod","bhosdike","chutiya","gandu","lund","fuck","bc","mc"]
-import re
+
 
 def contains_abuse(text):
     words = re.findall(r'\b\w+\b', text.lower())
@@ -84,7 +85,14 @@ MAX_HISTORY = 8
 def send_typing(chat_id, stages=2):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendChatAction"
     for _ in range(stages):
-        requests.post(url, json={"chat_id": chat_id, "action": "typing"}, timeout=10)
+        try:
+            requests.post(
+                url,
+                json={"chat_id": chat_id, "action": "typing"},
+                timeout=5
+            )
+        except:
+            pass
         time.sleep(random.uniform(0.6, 1.4))
         
 def send_message(chat_id, text):
@@ -297,7 +305,6 @@ def admin_command(chat_id, text):
         return f"Users: {users}"
 
 #WEBHOOK
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
 
@@ -311,6 +318,10 @@ def webhook():
 
     if not user_text:
         return "ok"
+
+    # ALL LOGIC HERE
+
+    return "ok"
 
     topic_memory[chat_id] = user_text
 
