@@ -378,23 +378,23 @@ def webhook():
     messages.extend(load_history(chat_id))
     messages.append({"role": "user", "content": user_text})
 
-    try:
-response = client.chat.completions.create(
-    model="openai/gpt-oss-120b",
-    messages=messages
-)
+try:
+    response = client.chat.completions.create(
+        model="openai/gpt-oss-120b",
+        messages=messages
+    )
 
-        reply = response.choices[0].message.content.strip()
+    reply = response.choices[0].message.content.strip()
 
-        if mood == "sad":
-            reply = "kya hua bata mujhe... " + reply
+    if mood == "sad":
+        reply = "kya hua bata mujhe... " + reply
 
-        emoji_list = ["🙂","😏","🔥","😎","💀","😂","👀","🤨","😌","🫠"]
-        reply = reply + " " + random.choice(emoji_list)
+    emoji_list = ["🙂","😉","🔥","😎","💀","😂","👀","🤔","😌","🫡"]
+    reply = reply + " " + random.choice(emoji_list)
 
-    except Exception as e:
-        print("AI ERROR:", e)
-        reply = "network slow hai... baad me bol 😅"
+except Exception as e:
+    print("AI ERROR:", e)
+    reply = "network slow hai... baad me bol 😅"
 
     save_history(chat_id, "user", user_text)
     save_history(chat_id, "assistant", reply)
