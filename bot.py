@@ -108,7 +108,10 @@ def send_message(chat_id, text, parse_mode=None):
     if parse_mode:
         payload["parse_mode"] = parse_mode
 
+    try:
     requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+    print("Telegram send error:", e)
 
 def send_sticker(chat_id):
     stickers = [
@@ -366,7 +369,10 @@ def webhook():
    )
 
 # admin ko log bhejna
+  try:
     send_message(ADMIN_ID, log_text)
+except Exception as e:
+    print("Admin log send failed:", e)
 
     if not user_text:
         return "ok"
@@ -454,4 +460,5 @@ def home():
 
 # RUN
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    import os
+     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
