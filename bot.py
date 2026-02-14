@@ -109,9 +109,9 @@ def send_message(chat_id, text, parse_mode=None):
         payload["parse_mode"] = parse_mode
 
     try:
-    requests.post(url, json=payload, timeout=10)
-    except Exception as e:
-    print("Telegram send error:", e)
+        requests.post(url, json=payload, timeout=10)
+except Exception as e:
+        print("Telegram send error:", e)
 
 def send_sticker(chat_id):
     stickers = [
