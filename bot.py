@@ -422,7 +422,7 @@ def webhook():
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama3-8b-8192",
             messages=messages
         )
 
