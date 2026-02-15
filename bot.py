@@ -14,19 +14,13 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 7899583720   # apna telegram id
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-
-
-
-#GROQ CLIENT
-
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY missing")
 
 client = OpenAI(
     api_key=GROQ_API_KEY,
     base_url="https://api.groq.com/openai/v1"
 )
-
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY missing")
 #FLASK
 
 topic_memory = {}
