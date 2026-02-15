@@ -110,7 +110,7 @@ def send_message(chat_id, text, parse_mode=None):
 
     try:
         requests.post(url, json=payload, timeout=10)
-except Exception as e:
+    except Exception as e:
         print("Telegram send error:", e)
 
 def send_sticker(chat_id):
@@ -370,7 +370,7 @@ def webhook():
 
 # admin ko log bhejna
     try:
-    send_message(ADMIN_ID, log_text)
+        send_message(ADMIN_ID, log_text)
 except Exception as e:
     print("Admin log send failed:", e)
 
