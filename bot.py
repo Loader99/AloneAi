@@ -371,8 +371,8 @@ def webhook():
 # admin ko log bhejna
     try:
         send_message(ADMIN_ID, log_text)
-except Exception as e:
-    print("Admin log send failed:", e)
+    except Exception as e:
+        print("Admin log send failed:", e)
 
     if not user_text:
         return "ok"
