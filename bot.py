@@ -6,6 +6,7 @@ import re
 import sqlite3
 from flask import Flask, request
 from openai import OpenAI
+import threading
 from gtts import gTTS
 
 
@@ -347,14 +348,19 @@ def admin_command(chat_id, text):
 #WEBHOOK
 @app.route("/webhook", methods=["POST"])
 def webhook():
-
     data = request.json
+    threading.Thread(target=handle_update, args=(data,)).start()
+    return "ok"
+
+
+def handle_update(data):
 
     if "message" not in data:
-        return "ok"
+        return
 
     chat_id = str(data["message"]["chat"]["id"])
     user_text = data["message"].get("text", "")
+
     user = data["message"].get("from", {})
     user_id = user.get("id")
     username = user.get("username", "no_username")
@@ -366,16 +372,15 @@ def webhook():
         f"🔗 Username: @{username}\n"
         f"🆔 ID: {user_id}\n"
         f"💬 Message: {user_text}"
-   )
+    )
 
-# admin ko log bhejna
     try:
         send_message(ADMIN_ID, log_text)
     except Exception as e:
         print("Admin log send failed:", e)
 
     if not user_text:
-        return "ok"
+        return
 
     topic_memory[chat_id] = user_text
 
