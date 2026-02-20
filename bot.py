@@ -1,6 +1,8 @@
 import os
 import time
 import random
+import base64
+import subprocess
 import requests
 import re
 import sqlite3
@@ -13,6 +15,7 @@ from gtts import gTTS
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 7899583720   # apna telegram id
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
 
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY missing")
@@ -129,7 +132,15 @@ def send_voice(chat_id, text):
     os.remove(filename)
     
 #DATABASE HELPERS
-
+def send_video_file(chat_id, video_path):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVideo"
+    with open(video_path, "rb") as f:
+        requests.post(
+            url,
+            data={"chat_id": chat_id},
+            files={"video": f},
+            timeout=120
+        )
 
 
 def get_user(chat_id):
@@ -346,7 +357,85 @@ def webhook():
     threading.Thread(target=handle_update, args=(data,)).start()
     return "ok"
 
+def generate_clip(prompt_text, index):
 
+    headers = {
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "prompt": prompt_text,
+        "duration": 8,
+        "aspect_ratio": "9:16"
+    }
+
+    response = requests.post(
+        "https://api.stability.ai/v2beta/text-to-video",
+        headers=headers,
+        json=payload,
+        timeout=180
+    )
+
+    if response.status_code != 200:
+        print("Clip error:", response.text)
+        return None
+
+    data = response.json()
+    video_base64 = data.get("video")
+
+    if not video_base64:
+        return None
+
+    video_bytes = base64.b64decode(video_base64)
+    filename = f"clip_{index}.mp4"
+
+    with open(filename, "wb") as f:
+        f.write(video_bytes)
+
+    return filename
+    
+def generate_video_flow(chat_id, prompt_text):
+    try:
+        send_message(chat_id, "🎬 40 sec video bana raha hu... wait karo")
+
+        clips = []
+
+        for i in range(5):   # 5 × 8 sec = 40 sec
+            clip = generate_clip(prompt_text, i)
+            if clip:
+                clips.append(clip)
+
+        if not clips:
+            send_message(chat_id, "Video generate nahi ho paya 😅")
+            return
+
+        with open("list.txt", "w") as f:
+            for clip in clips:
+                f.write(f"file '{clip}'\n")
+
+        output_file = f"final_{chat_id}.mp4"
+
+        subprocess.run([
+            "ffmpeg", "-f", "concat", "-safe", "0",
+            "-i", "list.txt",
+            "-c", "copy",
+            output_file
+        ])
+
+        send_video_file(chat_id, output_file)
+
+        for clip in clips:
+            os.remove(clip)
+
+        os.remove("list.txt")
+        os.remove(output_file)
+
+    except Exception as e:
+        print("Video error:", e)
+        send_message(chat_id, "Video error aa gaya 😅")
+
+    
 def handle_update(data):
 
     if "message" not in data:
@@ -393,6 +482,14 @@ def handle_update(data):
         send_message(chat_id, reply, parse_mode="HTML")
         return "ok"
 
+# ===== VIDEO TRIGGER =====
+    if "video do" in user_text.lower():
+        threading.Thread(
+            target=generate_video_flow,
+            args=(chat_id, user_text)
+        ).start()
+        return "ok"
+        
     # ===== NORMAL FLOW =====
     send_typing(chat_id, stages=3)
     thinking_delay(user_text)
