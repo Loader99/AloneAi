@@ -357,7 +357,7 @@ def webhook():
     threading.Thread(target=handle_update, args=(data,)).start()
     return "ok"
 
-def generate_clip(prompt_text, index):
+def generate_image(prompt_text, index):
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
@@ -366,67 +366,66 @@ def generate_clip(prompt_text, index):
 
     payload = {
         "prompt": prompt_text,
-        "duration": 8,
-        "aspect_ratio": "9:16"
+        "output_format": "jpeg"
     }
 
     response = requests.post(
-        "https://api.stability.ai/v2beta/text-to-video",
+        "https://api.stability.ai/v2beta/stable-image/generate/sd3",
         headers=headers,
         json=payload,
-        timeout=180
+        timeout=120
     )
 
     if response.status_code != 200:
-        print("Clip error:", response.text)
+        print("Image error:", response.text)
         return None
 
-    data = response.json()
-    video_base64 = data.get("video")
+    image_base64 = response.json()["image"]
+    image_bytes = base64.b64decode(image_base64)
 
-    if not video_base64:
-        return None
-
-    video_bytes = base64.b64decode(video_base64)
-    filename = f"clip_{index}.mp4"
+    filename = f"img_{index}.jpg"
 
     with open(filename, "wb") as f:
-        f.write(video_bytes)
+        f.write(image_bytes)
 
     return filename
     
 def generate_video_flow(chat_id, prompt_text):
     try:
-        send_message(chat_id, "🎬 40 sec video bana raha hu... wait karo")
+        send_message(chat_id, "🎬 40 sec slideshow video bana raha hu... wait karo")
 
-        clips = []
+        images = []
 
-        for i in range(5):   # 5 × 8 sec = 40 sec
-            clip = generate_clip(prompt_text, i)
-            if clip:
-                clips.append(clip)
+        for i in range(5):
+            img = generate_image(prompt_text, i)
+            if img:
+                images.append(img)
 
-        if not clips:
-            send_message(chat_id, "Video generate nahi ho paya 😅")
+        if not images:
+            send_message(chat_id, "Images generate nahi hui 😅")
             return
 
+        # create slideshow
         with open("list.txt", "w") as f:
-            for clip in clips:
-                f.write(f"file '{clip}'\n")
+            for img in images:
+                f.write(f"file '{img}'\n")
+                f.write("duration 8\n")
 
         output_file = f"final_{chat_id}.mp4"
 
         subprocess.run([
             "ffmpeg", "-f", "concat", "-safe", "0",
             "-i", "list.txt",
-            "-c", "copy",
+            "-vsync", "vfr",
+            "-pix_fmt", "yuv420p",
             output_file
         ])
 
         send_video_file(chat_id, output_file)
 
-        for clip in clips:
-            os.remove(clip)
+        # cleanup
+        for img in images:
+            os.remove(img)
 
         os.remove("list.txt")
         os.remove(output_file)
@@ -481,12 +480,28 @@ def handle_update(data):
 
         send_message(chat_id, reply, parse_mode="HTML")
         return "ok"
+# ===== PHOTO TRIGGER =====
+    if "photo do" in user_text.lower():
+        img = generate_image(user_text + ", 3D cartoon style, colorful kids animation", 0)
+        if img:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+            with open(img, "rb") as f:
+                requests.post(
+                    url,
+                    data={"chat_id": chat_id},
+                    files={"photo": f},
+                    timeout=30
+                )
+            os.remove(img)
+        else:
+            send_message(chat_id, "Image generate nahi hui 😅")
+        return "ok"
 
-# ===== VIDEO TRIGGER =====
+    # ===== VIDEO TRIGGER =====
     if "video do" in user_text.lower():
         threading.Thread(
             target=generate_video_flow,
-            args=(chat_id, user_text)
+            args=(chat_id, user_text + ", 3D cartoon style, colorful kids animation")
         ).start()
         return "ok"
         

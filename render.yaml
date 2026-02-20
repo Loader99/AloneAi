@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: aloneai-bot
+    runtime: python
+    buildCommand: |
+      apt-get update
+      apt-get install -y ffmpeg
+      pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: STABILITY_API_KEY
+        sync: false
