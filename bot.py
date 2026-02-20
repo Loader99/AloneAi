@@ -359,34 +359,39 @@ def webhook():
 def generate_image(prompt_text, index):
 
     headers = {
-    "Authorization": f"Bearer {STABILITY_API_KEY}",
-    "Accept": "image/*"
-}
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
     payload = {
         "model": "sd3-medium",
         "prompt": prompt_text,
-        "aspect_ratio": "1:1",
         "output_format": "jpeg"
     }
 
     response = requests.post(
-    "https://api.stability.ai/v2beta/stable-image/generate/core",
-    headers=headers,
-    json=payload,
-    timeout=120
-)
+        "https://api.stability.ai/v2beta/stable-image/generate",
+        headers=headers,
+        json=payload,
+        timeout=120
+    )
+
+    print("====== STABILITY DEBUG ======")
+    print("STATUS CODE:", response.status_code)
+    print("FULL ERROR RESPONSE:", response.text)     
+    print("==============================")
 
     if response.status_code != 200:
-        print("Image error:", response.text)
         return None
 
     data = response.json()
 
-    if "image" not in data:
-        print("Unexpected response:", data)
+    image_base64 = data.get("image")
+    if not image_base64:
+        print("NO IMAGE KEY")
         return None
 
-    image_base64 = data["image"]
     image_bytes = base64.b64decode(image_base64)
 
     filename = f"img_{index}.jpg"
