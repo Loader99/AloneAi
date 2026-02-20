@@ -365,7 +365,7 @@ def generate_image(prompt_text, index):
     }
 
     payload = {
-        "model": "sd3",
+        "model": "sd3-medium",
         "prompt": prompt_text,
         "aspect_ratio": "1:1",
         "output_format": "jpeg"
@@ -382,7 +382,13 @@ def generate_image(prompt_text, index):
         print("Image error:", response.text)
         return None
 
-    image_base64 = response.json()["image"]
+    data = response.json()
+
+    if "image" not in data:
+        print("Unexpected response:", data)
+        return None
+
+    image_base64 = data["image"]
     image_bytes = base64.b64decode(image_base64)
 
     filename = f"img_{index}.jpg"
@@ -391,7 +397,7 @@ def generate_image(prompt_text, index):
         f.write(image_bytes)
 
     return filename
-    
+
 def generate_video_flow(chat_id, prompt_text):
     try:
         send_message(chat_id, "🎬 40 sec slideshow video bana raha hu... wait karo")
