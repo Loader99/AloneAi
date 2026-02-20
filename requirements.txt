@@ -2,3 +2,6 @@ flask
 requests
 openai
 gtts
+moviepy
+imageio
+imageio-ffmpeg
