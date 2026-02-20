@@ -360,7 +360,7 @@ def generate_image(prompt_text, index):
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "application/json",
+        "Accept": "image/*"
         "Content-Type": "application/json"
     }
 
@@ -372,11 +372,11 @@ def generate_image(prompt_text, index):
     }
 
     response = requests.post(
-        "https://api.stability.ai/v2beta/stable-image/generate",
-        headers=headers,
-        json=payload,
-        timeout=120
-    )
+    "https://api.stability.ai/v2beta/stable-image/generate/core",
+    headers=headers,
+    json=payload,
+    timeout=120
+)
 
     if response.status_code != 200:
         print("Image error:", response.text)
