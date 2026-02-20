@@ -356,21 +356,23 @@ def webhook():
     data = request.json
     threading.Thread(target=handle_update, args=(data,)).start()
     return "ok"
-
 def generate_image(prompt_text, index):
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "application/json",
         "Content-Type": "application/json"
     }
 
     payload = {
+        "model": "sd3",
         "prompt": prompt_text,
+        "aspect_ratio": "1:1",
         "output_format": "jpeg"
     }
 
     response = requests.post(
-        "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+        "https://api.stability.ai/v2beta/stable-image/generate",
         headers=headers,
         json=payload,
         timeout=120
