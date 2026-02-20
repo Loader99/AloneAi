@@ -359,11 +359,9 @@ def webhook():
 def generate_image(prompt_text, index):
 
     headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "image/*"
-        "Content-Type": "application/json"
-    }
-
+    "Authorization": f"Bearer {STABILITY_API_KEY}",
+    "Accept": "image/*"
+}
     payload = {
         "model": "sd3-medium",
         "prompt": prompt_text,
